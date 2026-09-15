@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>سیستەمی سیحراوی بریسکە و جوڵەی دەست | Magic Hand Sparkles</title>
+  <meta name="description" content="وێبسایتی کارلێککاری دەست و بریسکەکان بە زیرەکی دەستکرد و کامێرا - دەستت بجوڵێنە و بریسکەکان بکە بە شێوەی جیاواز!">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Outfit:wght@300;400;600;700;900&family=Vazirmatn:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- MediaPipe Hands & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo-icon">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </div>
+      <div class="brand-text">
+        <h1>بریسکە سیحراوییەکان <span class="badge-tag">AI Live</span></h1>
+        <p class="subtitle">بە جوڵەی دەست بریسکەکان بکە بە گەلەئەستێرە، هەسارە، دڵ و ئەستێرە</p>
+      </div>
+    </div>
+
+    <!-- Quick Controls -->
+    <div class="header-controls">
+      <!-- Theme Selector -->
+      <div class="control-group">
+        <label for="theme-select"><i class="fa-solid fa-palette"></i> ڕەنگ:</label>
+        <select id="theme-select" aria-label="Theme Selector">
+          <option value="cyan">نیۆنی شین (Cyan Core)</option>
+          <option value="gold" selected>بریسکەی زێڕین (Golden Aura)</option>
+          <option value="purple">گەردوونی مۆر (Cosmic Purple)</option>
+          <option value="emerald">سەوزی ئەلیکترۆنی (Emerald Matrix)</option>
+          <option value="fire">ئاگر و سۆز (Crimson Blaze)</option>
+          <option value="rainbow">پەلکەزێڕینە (Prism Rainbow)</option>
+        </select>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button id="sound-btn" class="icon-btn" title="دەنگی سیحراوی">
+        <i class="fa-solid fa-volume-high"></i>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button id="fullscreen-btn" class="icon-btn" title="پڕاوپڕی شاشە">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container: 2-Part Split Layout -->
+  <main class="split-container">
+    
+    <!-- Part 1: Camera & Hand Tracking -->
+    <section class="panel camera-panel" id="camera-section">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="live-dot"></span>
+          <i class="fa-solid fa-camera"></i>
+          <span>بەشی ١: کامێرای وێب و ئاماژەی دەست</span>
+        </div>
+        <div class="panel-actions">
+          <button id="toggle-cam-btn" class="pill-btn active">
+            <i class="fa-solid fa-video"></i> کامێرا کارایە
+          </button>
+          <button id="flip-cam-btn" class="icon-btn small" title="ئاوێنەکردنی کامێرا">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Camera Viewport -->
+      <div class="viewport-wrapper">
+        <!-- Hidden raw video element -->
+        <video id="webcam-video" playsinline muted></video>
+        <!-- Overlay Canvas for Hand Landmarks & Skeleton -->
+        <canvas id="camera-canvas"></canvas>
+        
+        <!-- Camera Loading / Status Overlay -->
+        <div id="camera-overlay" class="camera-overlay">
+          <div class="spinner"></div>
+          <p id="camera-status-text">داواکردنی مۆڵەتی کامێرا...</p>
+          <button id="retry-cam-btn" class="pill-btn primary" style="display: none;">
+            <i class="fa-solid fa-rotate-right"></i> دووبارە هەوڵدانەوە
+          </button>
+        </div>
+
+        <!-- Detected Gesture HUD Floating Pill -->
+        <div class="gesture-hud" id="gesture-hud">
+          <div class="gesture-icon" id="gesture-hud-icon">🖐️</div>
+          <div class="gesture-info">
+            <span class="hud-label">ئاماژەی دەستنیشانکراو:</span>
+            <span class="hud-name" id="gesture-hud-name">دەستی کراوە (Galaxy)</span>
+          </div>
+        </div>
+
+        <!-- Hand Landmark Coordinates Tracker Indicator -->
+        <div class="tracking-stats" id="tracking-stats">
+          <span id="stat-hands">دەست: نەدۆزراوەتەوە</span>
+          <span id="stat-fps">FPS: 60</span>
+        </div>
+      </div>
+
+      <!-- Visual Guide for Hand Signs -->
+      <div class="gestures-guide">
+        <div class="guide-title">
+          <i class="fa-solid fa-hand-sparkles"></i> تاقییکردنەوەی ئاماژەکان (کلیک بکە یان دەستت پیشان بدە):
+        </div>
+        <div class="gestures-list" id="gestures-shortcuts">
+          <button class="gesture-chip active" data-gesture="open_palm">
+            <span class="chip-icon">🖐️</span>
+            <span class="chip-text">دەستی کراوە (گەلەئەستێرە)</span>
+          </button>
+          <button class="gesture-chip" data-gesture="fist">
+            <span class="chip-icon">✊</span>
+            <span class="chip-text">مستی داخراو (کونی ڕەش)</span>
+          </button>
+          <button class="gesture-chip" data-gesture="peace">
+            <span class="chip-icon">✌️</span>
+            <span class="chip-text">نیشانەی ئاشتی (هەسارەی کەیوان)</span>
+          </button>
+          <button class="gesture-chip" data-gesture="pointing">
+            <span class="chip-icon">☝️</span>
+            <span class="chip-text">پەنجەی شایەتمان (الله أكبر)</span>
+          </button>
+          <button class="gesture-chip" data-gesture="love">
+            <span class="chip-icon">🤟</span>
+            <span class="chip-text">خۆشەویستی (دڵی درەوشاوە)</span>
+          </button>
+          <button class="gesture-chip" data-gesture="thumbs_up">
+            <span class="chip-icon">👍</span>
+            <span class="chip-text">دەستخۆشی (تەقینەوەی بریسکە 🎆)</span>
+          </button>
+          <button class="gesture-chip" data-gesture="pinch">
+            <span class="chip-icon">🤏</span>
+            <span class="chip-text">پەنجە تێهەڵکێش (ئەستێرە)</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Part 2: Dynamic Sparkles / Particles Canvas -->
+    <section class="panel sparkles-panel" id="sparkles-section">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="fa-solid fa-meteor"></i>
+          <span>بەشی ٢: جیهانی بریسکە و تەنۆلکەکان (Sparkle Universe)</span>
+        </div>
+        <div class="panel-actions">
+          <div class="particle-count-selector">
+            <label for="particle-slider"><i class="fa-solid fa-dots"></i> بریسکەکان:</label>
+            <input type="range" id="particle-slider" min="1000" max="6000" step="500" value="3500">
+            <span id="particle-count-display">3500</span>
+          </div>
+          <button id="reset-sparkles-btn" class="icon-btn small" title="نوێکردنەوەی بریسکەکان">
+            <i class="fa-solid fa-arrows-spin"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sparkles Viewport -->
+      <div class="sparkles-wrapper" id="sparkles-wrapper">
+        <canvas id="sparkles-canvas"></canvas>
+
+        <!-- Current Shape Banner -->
+        <div class="shape-banner" id="shape-banner">
+          <span class="banner-tag">شێوەی ئێستا</span>
+          <h2 id="banner-shape-title">گەلەئەستێرەی خولاوە (Cosmic Galaxy)</h2>
+          <p id="banner-shape-desc">دەستت بجوڵێنە بۆ خولاندنەوە و کارلێککردن لەگەڵ بریسکەکان</p>
+        </div>
+
+        <!-- Mouse / Touch Fallback Hint -->
+        <div class="interaction-hint">
+          <i class="fa-solid fa-hand-pointer"></i>
+          <span>دەتوانیت ماوس یان پەنجەش ڕابکێشیت لەسەر بریسکەکان بۆ ئەوەی بپڕژێن!</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Interactive Script -->
+  <script src="app.js"></script>
+</body>
+</html>
